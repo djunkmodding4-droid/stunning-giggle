@@ -80,11 +80,13 @@ endif()
 add_library(ekz_vc_plugin SHARED src/plugin.cpp src/webrtc_bridge.cpp src/webrtc_peer_manager.cpp src/event_queue.cpp src/event_api.cpp src/audio_capture.cpp src/opus_codec.cpp src/opus_decoder.cpp src/audio_playback.cpp src/plugin_api.h)
 
 # Apply Opus include dirs and libraries now that the target exists
-if (OPUS_INCLUDE_DIRS)
-  target_include_directories(ekz_vc_plugin PRIVATE ${OPUS_INCLUDE_DIRS})
-endif()
-if (OPUS_LIBRARIES)
-  target_link_libraries(ekz_vc_plugin PRIVATE ${OPUS_LIBRARIES})
+if (TARGET ekz_vc_plugin)
+  if (OPUS_INCLUDE_DIRS)
+    target_include_directories(ekz_vc_plugin PRIVATE ${OPUS_INCLUDE_DIRS})
+  endif()
+  if (OPUS_LIBRARIES)
+    target_link_libraries(ekz_vc_plugin PRIVATE ${OPUS_LIBRARIES})
+  endif()
 endif()
 
 # Simple unit tests
@@ -99,7 +101,9 @@ add_test(NAME test_debug_flag COMMAND test_debug_flag)
 
 
 # Include the httplib headers from the fetched content
-target_include_directories(ekz_vc_plugin PRIVATE ${httplib_SOURCE_DIR})
+if (TARGET ekz_vc_plugin)
+  target_include_directories(ekz_vc_plugin PRIVATE ${httplib_SOURCE_DIR})
+endif()
 
 if (MSVC)
     target_compile_definitions(ekz_vc_plugin PRIVATE WINDOWS)
@@ -107,25 +111,31 @@ endif()
 
 # Add compile definitions if dependencies are available
 if (HAVE_PORTAUDIO)
-  target_compile_definitions(ekz_vc_plugin PRIVATE HAVE_PORTAUDIO=1)
-  target_link_libraries(ekz_vc_plugin PRIVATE portaudio_static)
+  if (TARGET ekz_vc_plugin)
+    target_compile_definitions(ekz_vc_plugin PRIVATE HAVE_PORTAUDIO=1)
+    target_link_libraries(ekz_vc_plugin PRIVATE portaudio_static)
+  endif()
 endif()
 if (HAVE_OPUS)
-  target_compile_definitions(ekz_vc_plugin PRIVATE HAVE_OPUS=1)
+  if (TARGET ekz_vc_plugin)
+    target_compile_definitions(ekz_vc_plugin PRIVATE HAVE_OPUS=1)
+  endif()
   # Linking is applied above when OPUS is detected; no target link attempt here.
 endif()
 
 # Link libdatachannel (rtc::rtc) for WebRTC support
 # libdatachannel provides the rtc::rtc target when built
 # Prefer linking the nlohmann_json target if available; otherwise add include dir fallback.
-target_link_libraries(ekz_vc_plugin PRIVATE rtc::rtc)
-if (TARGET nlohmann_json::nlohmann_json)
-  message(STATUS "Linking against nlohmann_json target")
-  target_link_libraries(ekz_vc_plugin PRIVATE nlohmann_json::nlohmann_json)
-else()
-  message(STATUS "nlohmann_json target not available; adding include directory from FetchContent")
-  if (DEFINED nlohmann_json_SOURCE_DIR)
-    target_include_directories(ekz_vc_plugin PRIVATE ${nlohmann_json_SOURCE_DIR}/include)
+if (TARGET ekz_vc_plugin)
+  target_link_libraries(ekz_vc_plugin PRIVATE rtc::rtc)
+  if (TARGET nlohmann_json::nlohmann_json)
+    message(STATUS "Linking against nlohmann_json target")
+    target_link_libraries(ekz_vc_plugin PRIVATE nlohmann_json::nlohmann_json)
+  else()
+    message(STATUS "nlohmann_json target not available; adding include directory from FetchContent")
+    if (DEFINED nlohmann_json_SOURCE_DIR)
+      target_include_directories(ekz_vc_plugin PRIVATE ${nlohmann_json_SOURCE_DIR}/include)
+    endif()
   endif()
 endif()
 
