@@ -23,8 +23,23 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Setup dependencies (CMake)
-      uses: lukka/get-cmake@v3
+    - name: Ensure CMake is available
+      run: |
+        echo "Checking CMake..."
+        if ! command -v cmake >/dev/null 2>&1; then
+          echo "CMake not found — installing"
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            brew install cmake || true
+          else
+            sudo apt-get update
+            sudo apt-get install -y cmake
+          fi
+        else
+          cmake --version
+        fi
+      shell: bash
 
     - name: Configure
       run: |
