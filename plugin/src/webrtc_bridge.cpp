@@ -7,6 +7,9 @@
 #include <atomic>
 #include <thread>
 #include <chrono>
+#include <cmath>
+#include <algorithm>
+#include <vector>
 
 static std::atomic<bool> g_webrtc_running(false);
 static std::thread g_webrtc_thread;
