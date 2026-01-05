@@ -11,12 +11,13 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
   GIT_TAG master
 )
-FetchContent_Declare(
-  nlohmann_json
-  GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG v3.11.2
-)
-FetchContent_MakeAvailable(httplib nlohmann_json)
+FetchContent_MakeAvailable(httplib)
+
+# NOTE: libdatachannel brings its own copy of nlohmann/json as a dependency (deps/json).
+# Avoid FetchContent'ing nlohmann_json here to prevent duplicate-target errors when
+# libdatachannel also tries to create the `nlohmann_json` target.
+# If you need the standalone nlohmann_json later, add a conditional fetch that avoids
+# colliding with the copy vendored by libdatachannel.
 
 # nlohmann_json is provided by FetchContent; prefer the target `nlohmann_json::nlohmann_json`.
 
@@ -39,13 +40,19 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(portaudio)
 
-# Fetch libopus for Opus codec
-FetchContent_Declare(
-  libopus
-  GIT_REPOSITORY https://github.com/xiph/opus.git
-  GIT_TAG v1.4.1
-)
-FetchContent_MakeAvailable(libopus)
+# Prefer system-provided Opus when available; otherwise fetch libopus
+find_package(opus CONFIG QUIET)
+if (TARGET opus)
+  message(STATUS "Using system-provided Opus (target 'opus')")
+else()
+  message(STATUS "System Opus not found; Fetching libopus (master) via FetchContent")
+  FetchContent_Declare(
+    libopus
+    GIT_REPOSITORY https://github.com/xiph/opus.git
+    GIT_TAG master
+  )
+  FetchContent_MakeAvailable(libopus)
+endif()
 
 # If PortAudio and Opus were found/built, define compile flags so code can conditionally compile
 if (TARGET portaudio)
