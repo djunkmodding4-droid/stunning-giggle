@@ -1,0 +1,12 @@
+# Build outputs
+/build/
+/out/
+/_tmp_pack/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+*.swp

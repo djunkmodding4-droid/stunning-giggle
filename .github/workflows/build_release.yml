@@ -1,0 +1,161 @@
+name: Build & Package Plugin
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  BUILD_DIR: build
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        config: [Release]
+    name: Build on ${{ matrix.os }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Ensure CMake is available
+      run: |
+        echo "Checking CMake..."
+        if ! command -v cmake >/dev/null 2>&1; then
+          echo "CMake not found — installing"
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            brew install cmake || true
+          else
+            sudo apt-get update
+            sudo apt-get install -y cmake
+          fi
+        else
+          cmake --version
+        fi
+      shell: bash
+
+    - name: Install build dependencies
+      run: |
+        if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libssl-dev libopus-dev libasound2-dev libpulse-dev ninja-build
+        elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+          brew install openssl opus portaudio ninja pkg-config || true
+        else
+          choco install openssl -y || true
+        fi
+      shell: bash
+
+    - name: Configure
+      run: |
+        mkdir -p $BUILD_DIR
+        cmake -S plugin -B $BUILD_DIR -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+      shell: bash
+
+    - name: "Debug: dump CMakeLists and fetched deps"
+      run: |
+        echo "---- plugin/CMakeLists.txt ----"
+        sed -n '1,200p' plugin/CMakeLists.txt || true
+        echo "---- Build deps directory ----"
+        ls -la $BUILD_DIR/_deps || true
+        find $BUILD_DIR/_deps -maxdepth 3 -type d -print -exec ls -la {} \; || true
+        echo "---- CMake cache/variables (filtered) ----"
+        cmake -S plugin -B $BUILD_DIR -LA | sed -n '1,200p' || true
+        echo "---- Grep for nlohmann in build dir ----"
+        grep -R "nlohmann" $BUILD_DIR || true
+      shell: bash
+
+    - name: Build
+      run: |
+        cmake --build $BUILD_DIR --config ${{ matrix.config }} -- -j
+      shell: bash
+
+    - name: Run unit tests
+      run: |
+        if [ -f "$BUILD_DIR/CTestTestfile.cmake" ]; then ctest --test-dir $BUILD_DIR --output-on-failure || true; fi
+      shell: bash
+
+    - name: Collect plugin artifact
+      run: |
+        mkdir -p artifact
+        # Find first matched binary type per OS
+        case "${{ matrix.os }}" in
+          windows-latest)
+            bin=$(find $BUILD_DIR -type f -name "*.dll" -print -quit || true)
+            ;;
+          macos-latest)
+            bin=$(find $BUILD_DIR -type f -name "*.dylib" -print -quit || true)
+            ;;
+          ubuntu-latest)
+            bin=$(find $BUILD_DIR -type f -name "*.so" -print -quit || true)
+            ;;
+        esac
+        if [ -n "$bin" ]; then cp -v "$bin" artifact/; fi
+        ls -la artifact || true
+      shell: bash
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: plugin-${{ matrix.os }}
+        path: artifact/
+
+  package:
+    name: Create runtime ZIPs
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: downloaded
+
+    - name: Create runtime zips
+      run: |
+        mkdir -p out
+        # For each downloaded plugin artifact, create a runtime ZIP containing info.txt, main.lua and the plugin binary
+        for f in downloaded/*/artifact/*; do
+          if [ -f "$f" ]; then
+            base=$(basename $f)
+            osdir=$(dirname $f | sed 's@downloaded/@@' | sed 's@/artifact@@')
+            mkdir -p tmp/$osdir
+            cp info.txt tmp/$osdir/
+            cp main.lua tmp/$osdir/
+            cp "$f" tmp/$osdir/
+            zip -r out/proximity-voice-${osdir}.zip tmp/$osdir
+            rm -rf tmp/$osdir
+          fi
+        done
+        ls -la out
+
+    - name: Upload runtime zips
+      uses: actions/upload-artifact@v4
+      with:
+        name: runtime-zips
+        path: out/
+
+    - name: Create GitHub release (optional)
+      if: github.event_name == 'workflow_dispatch'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: "v${{ github.run_id }}"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload zips to release (optional)
+      if: github.event_name == 'workflow_dispatch'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: out/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

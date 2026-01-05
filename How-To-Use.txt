@@ -1,0 +1,53 @@
+Proximity Voice Chat — How To Use
+
+Overview
+- This mod adds per-player proximity voice chat controls. The Lua mod provides the UI and authoritative controls (host global mute, per-player settings).
+- NOTE: The native plugin (media-plane) that performs microphone capture/playout, Opus encode/decode, and transport **is not included** in this distribution by default. Without a platform-specific plugin binary the Lua UI will function but audio capture/playout and networking will be unavailable.
+
+Runtime Readiness (short)
+- Out-of-box: The Lua control-plane (UI, settings persistence, E2E harness) is present and will run when the mod folder is installed.
+- Full functionality (voice capture/playout + transport) requires a platform-specific built plugin binary placed in `plugin/` (e.g., `plugin/proximity_voice_plugin.dll` on Windows).
+- The `dev/` folder contains sources, tests, CI and helper tools (not required at runtime) and can be removed from end-user releases.
+
+Installation & Requirements (runtime)
+- Place the mod folder in your Teardown `mods/` directory and enable it in-game.
+- If you want full voice functionality, **add** the plugin binary for your platform to `plugin/` before launching the game.
+- Network: Peer-to-peer transport uses a signaling relay and libdatachannel; check firewalls and NAT/ TURN/STUN if peers cannot connect.
+
+Build or obtain plugin binaries
+- To build yourself (developer): see `dev/plugin/BUILD_NOTES.md` and `dev/plugin/CMakeLists.txt`. You will need CMake and a C++ toolchain (MSVC on Windows, Xcode on macOS, GCC/Clang on Linux). The build produces platform-specific plugin binaries to copy into `plugin/`.
+- To use prebuilt binaries: copy the correct binary into `plugin/` (name can be any recognized plugin filename; the plugin must export the expected functions). We provide a GitHub Actions workflow that builds plugin binaries for Windows/macOS/Linux and uploads them as artifacts; check the Actions tab on the repository for `Build & Package Plugin` runs and download `runtime-zips` or the per-platform `plugin-*` artifacts.
+- Local helper scripts: `scripts/build_plugin.sh` / `scripts/build_plugin.ps1` help build locally and copy found plugin binaries into `plugin/`. Use `scripts/make_runtime_zip.sh` / `scripts/make_runtime_zip.ps1` to package `info.txt`, `main.lua`, and a plugin binary into a runtime ZIP for distribution.
+
+Controls & UI
+- Pause Menu → "Proximity Voice Chat"
+  - Player list: name, local-mute toggle, voice level meter (visible when plugin active).
+  - Local mute (M): local-only mute.
+  - Host: Global Mute — mutes a player for everyone and forces peer disconnect.
+
+Keyboard Shortcuts
+- Ctrl+M: Toggle your microphone mute (self-mute).
+- Ctrl+E: Host-only E2E mute test.
+
+Settings & Persistence
+- Settings persist across game restarts using the game's registry API.
+- Debug Mode: Toggles verbose logging for both Lua and the plugin (default OFF).
+
+Testing & Diagnostics
+- Use the E2E test (host) to validate global mute and forced-disconnect behavior.
+- Plugin tests are in `dev/plugin/tests/` (dev-only). Run via build/test runner after building.
+- Enable Debug Mode in the settings panel to see `client.log` output and request verbose plugin logs.
+
+Common Troubleshooting
+- No audio: plugin binary missing — place the correct binary in `plugin/`.
+- Plugin errors at startup: check game console and enable Debug Mode; check platform-specific dependencies.
+
+Privacy & Safety
+- Audio capture occurs locally on each client; the mod sends encoded voice frames over the network and does not log raw audio to disk.
+
+Quick checklist before shipping
+- Include `info.txt`, `main.lua`, and the platform plugin binaries (recommended).
+- `dev/` can be omitted from the runtime distribution.
+
+---
+Last updated: 2026-01-05
