@@ -44,11 +44,16 @@ FetchContent_MakeAvailable(portaudio)
 # Building libopus via FetchContent can fail on minimal CI images; require the system package instead.
 include(FindPkgConfig)
 pkg_check_modules(OPUS opus QUIET)
+# Gather Opus variables (do NOT call target_* on a target that doesn't exist yet)
+set(OPUS_INCLUDE_DIRS "")
+set(OPUS_LIBRARIES "")
 if (OPUS_FOUND)
   message(STATUS "Found Opus via pkg-config")
   set(HAVE_OPUS 1)
-  target_include_directories(ekz_vc_plugin PRIVATE ${OPUS_INCLUDE_DIRS})
-  target_link_libraries(ekz_vc_plugin PRIVATE ${OPUS_LIBRARIES})
+  # pkg_check_modules already provides OPUS_INCLUDE_DIRS and OPUS_LIBRARIES variables
+  # copy them into our canonical names so we can apply them after the target exists
+  set(OPUS_INCLUDE_DIRS ${OPUS_INCLUDE_DIRS})
+  set(OPUS_LIBRARIES ${OPUS_LIBRARIES})
 else()
   # fallback to basic find_library/find_path
   find_library(OPUS_LIB NAMES opus PATHS /usr/lib /usr/lib64 /usr/local/lib /opt/homebrew/lib NO_DEFAULT_PATH)
@@ -56,8 +61,8 @@ else()
   if (OPUS_LIB AND OPUS_INCLUDE_DIR)
     message(STATUS "Found Opus via find_library/find_path")
     set(HAVE_OPUS 1)
-    target_include_directories(ekz_vc_plugin PRIVATE ${OPUS_INCLUDE_DIR})
-    target_link_libraries(ekz_vc_plugin PRIVATE ${OPUS_LIB})
+    set(OPUS_LIBRARIES ${OPUS_LIB})
+    set(OPUS_INCLUDE_DIRS ${OPUS_INCLUDE_DIR})
   else()
     message(WARNING "Opus library not found. Voice capture/encoding will be disabled. To enable, install 'libopus-dev' (Ubuntu) or 'brew install opus'.")
     set(HAVE_OPUS 0)
@@ -72,7 +77,15 @@ if (TARGET opus)
   set(HAVE_OPUS 1)
 endif()
 
-add_library(ekz_vc_plugin SHARED src/plugin.cpp src/webrtc_bridge.cpp src/webrtc_peer_manager.cpp src/event_queue.cpp src/event_api.cpp src/audio_capture.cpp src/opus_codec.cpp src/opus_decoder.cpp src/audio_playback.cpp src/webrtc_bridge.cpp src/plugin_api.h)
+add_library(ekz_vc_plugin SHARED src/plugin.cpp src/webrtc_bridge.cpp src/webrtc_peer_manager.cpp src/event_queue.cpp src/event_api.cpp src/audio_capture.cpp src/opus_codec.cpp src/opus_decoder.cpp src/audio_playback.cpp src/plugin_api.h)
+
+# Apply Opus include dirs and libraries now that the target exists
+if (OPUS_INCLUDE_DIRS)
+  target_include_directories(ekz_vc_plugin PRIVATE ${OPUS_INCLUDE_DIRS})
+endif()
+if (OPUS_LIBRARIES)
+  target_link_libraries(ekz_vc_plugin PRIVATE ${OPUS_LIBRARIES})
+endif()
 
 # Simple unit tests
 add_executable(test_event_queue tests/test_event_queue.cpp src/event_queue.cpp src/event_api.cpp)
