@@ -18,8 +18,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(httplib nlohmann_json)
 
-# Add include for nlohmann
-find_package(nlohmann_json CONFIG REQUIRED)
+# nlohmann_json is provided by FetchContent; prefer the target `nlohmann_json::nlohmann_json`.
 
 # Fetch libdatachannel (lightweight WebRTC stack for native plugin)
 FetchContent_Declare(

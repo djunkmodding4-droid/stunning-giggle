@@ -41,10 +41,22 @@ jobs:
         fi
       shell: bash
 
+    - name: Install build dependencies
+      run: |
+        if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libssl-dev libopus-dev libasound2-dev libpulse-dev ninja-build
+        elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+          brew install openssl opus portaudio ninja pkg-config || true
+        else
+          choco install openssl -y || true
+        fi
+      shell: bash
+
     - name: Configure
       run: |
         mkdir -p $BUILD_DIR
-        cmake -S plugin -B $BUILD_DIR -DCMAKE_BUILD_TYPE=${{ matrix.config }}
+        cmake -S plugin -B $BUILD_DIR -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DCMAKE_POLICY_VERSION_MINIMUM=3.5
       shell: bash
 
     - name: Build
