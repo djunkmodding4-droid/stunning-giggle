@@ -124,10 +124,20 @@ if (HAVE_OPUS)
 endif()
 
 # Link libdatachannel (rtc::rtc) for WebRTC support
-# libdatachannel provides the rtc::rtc target when built
-# Prefer linking the nlohmann_json target if available; otherwise add include dir fallback.
+# libdatachannel is expected to provide the rtc::rtc target when built. Guard against
+# the target not being present on some CI images and provide a clear fallback behavior.
 if (TARGET ekz_vc_plugin)
-  target_link_libraries(ekz_vc_plugin PRIVATE rtc::rtc)
+  if (TARGET rtc::rtc)
+    message(STATUS "Linking against libdatachannel rtc::rtc target")
+    target_link_libraries(ekz_vc_plugin PRIVATE rtc::rtc)
+    set(HAVE_WEBRTC 1)
+  else()
+    message(WARNING "libdatachannel target 'rtc::rtc' not found; WebRTC support will be disabled. To enable, ensure libdatachannel builds successfully (check FetchContent logs) or provide a system installation.)")
+    set(HAVE_WEBRTC 0)
+    # Expose a compile-time define so code can disable WebRTC-specific paths
+    target_compile_definitions(ekz_vc_plugin PRIVATE HAVE_WEBRTC=0)
+  endif()
+
   if (TARGET nlohmann_json::nlohmann_json)
     message(STATUS "Linking against nlohmann_json target")
     target_link_libraries(ekz_vc_plugin PRIVATE nlohmann_json::nlohmann_json)
