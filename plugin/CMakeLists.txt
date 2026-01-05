@@ -40,18 +40,28 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(portaudio)
 
-# Prefer system-provided Opus when available; otherwise fetch libopus
-find_package(opus CONFIG QUIET)
-if (TARGET opus)
-  message(STATUS "Using system-provided Opus (target 'opus')")
+# Prefer system-provided Opus when available; otherwise *don't* attempt to build it via FetchContent
+# Building libopus via FetchContent can fail on minimal CI images; require the system package instead.
+include(FindPkgConfig)
+pkg_check_modules(OPUS opus QUIET)
+if (OPUS_FOUND)
+  message(STATUS "Found Opus via pkg-config")
+  set(HAVE_OPUS 1)
+  target_include_directories(ekz_vc_plugin PRIVATE ${OPUS_INCLUDE_DIRS})
+  target_link_libraries(ekz_vc_plugin PRIVATE ${OPUS_LIBRARIES})
 else()
-  message(STATUS "System Opus not found; Fetching libopus (master) via FetchContent")
-  FetchContent_Declare(
-    libopus
-    GIT_REPOSITORY https://github.com/xiph/opus.git
-    GIT_TAG master
-  )
-  FetchContent_MakeAvailable(libopus)
+  # fallback to basic find_library/find_path
+  find_library(OPUS_LIB NAMES opus PATHS /usr/lib /usr/lib64 /usr/local/lib /opt/homebrew/lib NO_DEFAULT_PATH)
+  find_path(OPUS_INCLUDE_DIR NAMES opus/opus.h PATHS /usr/include /usr/local/include /opt/homebrew/include NO_DEFAULT_PATH)
+  if (OPUS_LIB AND OPUS_INCLUDE_DIR)
+    message(STATUS "Found Opus via find_library/find_path")
+    set(HAVE_OPUS 1)
+    target_include_directories(ekz_vc_plugin PRIVATE ${OPUS_INCLUDE_DIR})
+    target_link_libraries(ekz_vc_plugin PRIVATE ${OPUS_LIB})
+  else()
+    message(WARNING "Opus library not found. Voice capture/encoding will be disabled. To enable, install 'libopus-dev' (Ubuntu) or 'brew install opus'.")
+    set(HAVE_OPUS 0)
+  endif()
 endif()
 
 # If PortAudio and Opus were found/built, define compile flags so code can conditionally compile
@@ -89,7 +99,7 @@ if (HAVE_PORTAUDIO)
 endif()
 if (HAVE_OPUS)
   target_compile_definitions(ekz_vc_plugin PRIVATE HAVE_OPUS=1)
-  target_link_libraries(ekz_vc_plugin PRIVATE opus)
+  # Linking is applied above when OPUS is detected; no target link attempt here.
 endif()
 
 # Link libdatachannel (rtc::rtc) for WebRTC support
