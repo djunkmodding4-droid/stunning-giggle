@@ -59,6 +59,19 @@ jobs:
         cmake -S plugin -B $BUILD_DIR -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DCMAKE_POLICY_VERSION_MINIMUM=3.5
       shell: bash
 
+    - name: Debug: dump CMakeLists and fetched deps
+      run: |
+        echo "---- plugin/CMakeLists.txt ----"
+        sed -n '1,200p' plugin/CMakeLists.txt || true
+        echo "---- Build deps directory ----"
+        ls -la $BUILD_DIR/_deps || true
+        find $BUILD_DIR/_deps -maxdepth 3 -type d -print -exec ls -la {} \; || true
+        echo "---- CMake cache/variables (filtered) ----"
+        cmake -S plugin -B $BUILD_DIR -LA | sed -n '1,200p' || true
+        echo "---- Grep for nlohmann in build dir ----"
+        grep -R "nlohmann" $BUILD_DIR || true
+      shell: bash
+
     - name: Build
       run: |
         cmake --build $BUILD_DIR --config ${{ matrix.config }} -- -j

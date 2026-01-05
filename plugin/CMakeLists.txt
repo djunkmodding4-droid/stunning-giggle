@@ -85,8 +85,18 @@ if (HAVE_OPUS)
   target_link_libraries(ekz_vc_plugin PRIVATE opus)
 endif()
 
-# Link libdatachannel (rtc::rtc) for WebRTC support and nlohmann_json target
+# Link libdatachannel (rtc::rtc) for WebRTC support
 # libdatachannel provides the rtc::rtc target when built
-target_link_libraries(ekz_vc_plugin PRIVATE rtc::rtc nlohmann_json::nlohmann_json)
+# Prefer linking the nlohmann_json target if available; otherwise add include dir fallback.
+target_link_libraries(ekz_vc_plugin PRIVATE rtc::rtc)
+if (TARGET nlohmann_json::nlohmann_json)
+  message(STATUS "Linking against nlohmann_json target")
+  target_link_libraries(ekz_vc_plugin PRIVATE nlohmann_json::nlohmann_json)
+else()
+  message(STATUS "nlohmann_json target not available; adding include directory from FetchContent")
+  if (DEFINED nlohmann_json_SOURCE_DIR)
+    target_include_directories(ekz_vc_plugin PRIVATE ${nlohmann_json_SOURCE_DIR}/include)
+  endif()
+endif()
 
 # Note: cpp-httplib is header-only. For more advanced setups consider using Boost.Beast or a dedicated WebSocket library.
