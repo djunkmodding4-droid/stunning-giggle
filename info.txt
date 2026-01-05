@@ -1,0 +1,7 @@
+id = "ekzesh_proximity_voice_chat"
+name = "ekzesh's Proximity Voice Chat"
+author = "ekzesh"
+version = 1
+description = "Proximity voice chat management UI + settings, with per-player mute and host global mute. (Note: engine has no built-in microphone capture; see README for integration.)"
+version = 2 
+-- version=2 is required for multiplayer script support

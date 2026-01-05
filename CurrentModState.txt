@@ -1,0 +1,71 @@
+Proximity Voice Chat — Current Mod State (Comprehensive)
+Release candidate: v1.0.0
+
+Summary
+- Purpose: Adds proximity voice chat for Teardown experimental multiplayer with per-player controls, host-authoritative global mute, persistent settings, and a native plugin handling audio capture/playout and transport.
+- Architecture: Lua control-plane (UI, registry persistence, host authority, signaling relay via ServerCall/ClientCall). Native plugin (C++): media-plane (PortAudio capture/playout, Opus codec, libdatachannel transport). The plugin runs headlessly (no helper web UI required).
+
+Runtime readiness (2026-01-05)
+- The Lua control-plane (`main.lua`) and mod metadata (`info.txt`) are present and function when the mod folder is installed.
+- **Important:** No platform plugin binaries are included in this distribution. To get full voice functionality (microphone capture/playout and P2P transport) you must provide a platform-specific plugin binary in `plugin/` (for example `plugin/proximity_voice_plugin.dll` on Windows).
+- The `dev/` directory contains source code, tests, CI configuration, and helper tooling — it is **development-only** and can be removed from any runtime release.
+
+Implemented Features (status: Done)
+- Pause menu UI: "Proximity Voice Chat" panel accessible to all players.
+- Per-player local mute: Toggle per-player audio locally; persists across sessions.
+- Host global mute: Host can globally mute a player; enforced by plugin (forced-disconnect + blocked offers).
+- Persistence: Settings saved with SetString/GetString (registry), loads at startup.
+- Plugin event queue improvements: non-blocking PluginHasEvent() exported; Lua polls PluginHasEvent before PluginPopEvent for efficiency.
+- Event registration shim: PluginRegisterEventHandler / PluginGetRegisteredEventHandler added to plugin API (shim stores handler name; engine-level invocation requested / proposal prepared).
+- Forced-disconnect: peer_manager_force_disconnect triggers immediate peer closure and pushes "peer-closed|<playerId>" events.
+- Offer blocking: createOffer checks if a player is globally muted and emits "blocked|<playerId>" when blocked.
+- UI polish & accessibility: notification overlay, contextual help tips with pulses, Reduce Motion option, keyboard shortcuts (Ctrl+M toggles mute, Ctrl+E runs E2E test), layout fixes and text wrapping.
+- E2E test harness (Lua): Host-run test to verify global mute/forced-disconnect behavior and client responses.
+- Unit tests: plugin event_queue tests and event callback shim tests; CMake test targets and run scripts added.
+- Debug flag: Added a persistent `debug` setting (default OFF) exposed in the Pause menu. The Lua mod now provides `client.log` which only outputs when debug is enabled. The plugin exports `PluginSetDebug(int)`/`PluginGetDebug()` and gates its runtime `std::cout` logs behind an internal `g_plugin_debug` flag.
+
+Event & Signaling Protocol (string events)
+- local-sdp|<playerId>|<base64_sdp>|<sdpType>
+- candidate|<playerId>|<base64_candidate>
+- peer-open|<playerId>
+- peer-closed|<playerId>
+- level|<playerId>|<0-100>
+- global-mute|<playerId>|<0|1>
+- blocked|<playerId>
+
+Files & Notable Code Locations
+- Lua control plane:
+  - `main.lua` — UI, event polling, persistence, E2E harness, notifications, help tips, accessibility.
+- Development-only sources (moved to `dev/`):
+  - `dev/plugin/src/*` — all plugin source files (event queue, event_api, peer manager, opus codec, playback/capture, etc.)
+  - `dev/plugin/tests/*` — unit tests and run scripts
+  - `dev/helper/*` — optional signaling helper server and web UI for development
+  - `dev/.github/*` and CI workflow files — CI configuration (kept under `dev/` to avoid shipping in end-user releases)
+
+Files NOT essential for runtime (now located under `dev/`)
+- `dev/plugin/src/*` (source files)
+- `dev/plugin/tests/*` (test files)
+- `dev/helper/*` (helper server and web UI)
+- `dev/patch_bundle/*` (patch / PR helper files)
+- `dev/README.md`, `dev/TEST_PLAN.md`, `dev/RELEASE_NOTES.md`, `dev/*` docs and CI configs
+
+Known Limitations & Partial Work
+- Engine-level callback invocation for registered Lua handlers: a shim exists (stores handler name) and an engine-integration proposal was prepared — engine maintainers must implement the callback for direct invocation (polling is the current fallback).
+- TURN/STUN and NAT traversal optimizations: currently functional but could be hardened with TURN infrastructure for hostile NATs.
+- Packaging & prebuilt binaries: cross-platform prebuilt plugin binaries and CI packaging are not yet finalized; building the plugin is required if prebuilt binaries aren't supplied.
+- Full automated multi-instance E2E CI: planned but not implemented.
+
+Suggested Test Checklist (Manual & Automated)
+(unchanged; see full list in the file for manual test steps)
+
+Next Steps to ship a runtime-ready release
+1. Build or obtain plugin binaries for target platforms (Windows/macOS/Linux) and add them to `plugin/`.
+2. Trigger CI to build and verify artifacts; add artifact upload and release automation.
+3. Add TURN tests and optionally document recommended TURN server configs.
+4. Optionally: move developer docs into `dev/` and produce a minimal runtime ZIP that contains only `info.txt`, `main.lua`, and `plugin/` binaries.
+
+Where to look for logs
+- Game console log (Teardown) and verbose plugin logs when Debug Mode is enabled.
+
+---
+Last updated: 2026-01-05

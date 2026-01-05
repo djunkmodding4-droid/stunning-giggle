@@ -1,0 +1,12 @@
+Release v1.0.0 Checklist
+
+- [x] Core features implemented (UI, local mute, global mute enforcement)
+- [x] Persistent settings
+- [x] Debug mode and gated logging implemented
+- [x] Unit tests added (event queue, event callback shim, debug flag)
+- [x] CI workflow added (build & tests on Windows/macOS/Linux)
+- [ ] CI artifacts published and verified (run on first CI run)
+- [ ] Add TURN/STUN testing and optional TURN config
+- [ ] Produce platform-specific signed binaries and add them to release assets
+- [ ] Add E2E automated integration tests (multi-instance)
+- [x] Request engine-level integration to allow direct registered handler invocation
