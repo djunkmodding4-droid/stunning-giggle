@@ -7,6 +7,8 @@
 #include <map>
 #include <sstream>
 #include <iostream>
+#include <chrono>
+#include <cmath>
 
 static std::atomic<bool> g_running{false};
 static std::thread g_thread;

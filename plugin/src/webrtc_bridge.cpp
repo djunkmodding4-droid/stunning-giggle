@@ -1,6 +1,7 @@
 #include "webrtc_bridge.h"
 #include "plugin_api.h"
 #include "plugin_debug.h"
+#include "audio_playback.h"
 
 #include <iostream>
 #include <atomic>
